@@ -1,0 +1,48 @@
+{
+  "name": "mdc-cli",
+  "version": "1.0.0",
+  "description": "CLI tool to upload Markdown files to Confluence",
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "<your-repository-url>"
+  },
+  "keywords": [
+    "confluence",
+    "markdown",
+    "cli",
+    "upload",
+    "atlassian",
+    "documentation",
+    "mdc"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "main": "dist/standalone.js",
+  "bin": {
+    "mdc": "./dist/standalone.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/standalone.js",
+    "dev": "ts-node src/standalone.ts",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "markdown-it": "^14.2.0",
+    "ora": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^20.10.4",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.3"
+  }
+}
