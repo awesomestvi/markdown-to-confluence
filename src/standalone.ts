@@ -420,6 +420,7 @@ program
 program
 	.command("fetch <pageId>")
 	.description("Fetch a Confluence page content by ID")
+	.option("-k, --space <key>", "Confluence space key (optional)")
 	.option("-o, --output <file>", "Output file path (default: stdout)")
 	.action(async (pageId: string, options: Record<string, unknown>) => {
 		try {
@@ -441,6 +442,7 @@ program
 			}
 
 			const spinner = ora("Fetching page from Confluence...").start();
+			const spaceKey = options.space as string | undefined;
 
 			const headers = {
 				"Content-Type": "application/json",
@@ -449,7 +451,11 @@ program
 				"X-Atlassian-Token": "nocheck",
 			};
 
-			const url = `${baseUrl}/rest/api/content/${pageId}?expand=body.storage`;
+			// Build URL with optional space key parameter
+			let url = `${baseUrl}/rest/api/content/${pageId}?expand=body.storage`;
+			if (spaceKey) {
+				url += `&spaceKey=${encodeURIComponent(spaceKey)}`;
+			}
 			const response = await fetch(url, {
 				method: "GET",
 				headers,
