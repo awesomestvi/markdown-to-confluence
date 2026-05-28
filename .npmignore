@@ -21,9 +21,9 @@ test-api.js
 *.md
 !README.md
 
-# Scripts
-install-cli.sh
-setup-zshrc.sh
+# Scripts (keep setup scripts in package)
+# install-cli.sh
+# setup-zshrc.sh
 
 # Git
 .git/
