@@ -442,6 +442,9 @@ program
 			}
 
 			const spinner = ora("Fetching page from Confluence...").start();
+
+			// Remove trailing slash from base URL
+			const cleanBaseUrl = baseUrl.replace(/\/$/, "");
 			const spaceKey = options.space as string | undefined;
 
 			const headers = {
@@ -452,7 +455,7 @@ program
 			};
 
 			// Build URL with optional space key parameter
-			let url = `${baseUrl}/rest/api/content/${pageId}?expand=body.storage`;
+			let url = `${cleanBaseUrl}/rest/api/content/${pageId}?expand=body.storage`;
 			if (spaceKey) {
 				url += `&spaceKey=${encodeURIComponent(spaceKey)}`;
 			}
@@ -493,11 +496,11 @@ program
 				fs.writeFileSync(outputPath, content || "");
 				console.log(chalk.blue(`\n📄 Content saved to: ${outputPath}`));
 			} else {
-				console.log("\n" + (content || ""));
+				console.log(`\n${content || ""}`);
 			}
 
 			const links = page._links as Record<string, unknown>;
-			console.log(chalk.blue(`🔗 Page URL: ${baseUrl}${links.webui}`));
+			console.log(chalk.blue(`🔗 Page URL: ${cleanBaseUrl}${links.webui}`));
 			console.log(chalk.green("✅ Fetch complete!\n"));
 		} catch (error: unknown) {
 			console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
