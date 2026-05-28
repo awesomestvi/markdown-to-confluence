@@ -1,5 +1,5 @@
 ---
-confluence: <url-goes-here>
+confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title
 ---
 
 # Example Documentation Page
