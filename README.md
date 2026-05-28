@@ -100,6 +100,8 @@ mdc upload your-file.md -u
 | `mdc upload file.md -u` | Update existing page |
 | `mdc upload file.md -t "Custom Title"` | Override page title |
 | `mdc upload file.md -k SPACE -p 123456` | Specify space and parent |
+| `mdc fetch <pageId>` | Fetch a Confluence page content |
+| `mdc fetch <pageId> -o file.md` | Fetch and save to file |
 
 ### All Available Options
 
@@ -138,6 +140,15 @@ mdc upload onboarding.md \
   -k ENG \
   -p 987654321 \
   -t "Engineering Onboarding"
+```
+
+### Fetch Page Content
+```bash
+# Fetch and display to stdout
+mdc fetch 123456789
+
+# Fetch and save to file
+mdc fetch 123456789 -o downloaded-page.md
 ```
 
 ### Upload Multiple Files

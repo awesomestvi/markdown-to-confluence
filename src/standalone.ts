@@ -418,6 +418,75 @@ program
 	});
 
 program
+	.command("fetch <pageId>")
+	.description("Fetch a Confluence page content by ID")
+	.option("-o, --output <file>", "Output file path (default: stdout)")
+	.action(async (pageId: string, options: Record<string, unknown>) => {
+		try {
+			const email = process.env.CONFLUENCE_EMAIL;
+			const apiToken = process.env.CONFLUENCE_API_TOKEN;
+			const baseUrl = process.env.CONFLUENCE_BASE_URL;
+
+			if (!email || !apiToken || !baseUrl) {
+				console.error(
+					chalk.red(
+						"❌ Missing required Confluence credentials in environment:",
+					),
+				);
+				if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
+				if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
+				if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
+				console.error(chalk.yellow("\n💡 Run: mdc init"));
+				process.exit(1);
+			}
+
+			const spinner = ora("Fetching page from Confluence...").start();
+
+			const headers = {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+				Authorization: `Bearer ${apiToken}`,
+				"X-Atlassian-Token": "nocheck",
+			};
+
+			const url = `${baseUrl}/rest/api/content/${pageId}?expand=body.storage`;
+			const response = await fetch(url, {
+				method: "GET",
+				headers,
+			});
+
+			if (!response.ok) {
+				throw new Error(`Request failed with status code ${response.status}`);
+			}
+
+			const page = (await response.json()) as Record<string, unknown>;
+			const content = (
+				(page.body as Record<string, unknown>)?.storage as Record<
+					string,
+					unknown
+				>
+			)?.value as string;
+
+			spinner.succeed(chalk.green(`Fetched page: ${page.title as string}`));
+
+			if (options.output) {
+				const outputPath = options.output as string;
+				fs.writeFileSync(outputPath, content || "");
+				console.log(chalk.blue(`\n📄 Content saved to: ${outputPath}`));
+			} else {
+				console.log("\n" + (content || ""));
+			}
+
+			const links = page._links as Record<string, unknown>;
+			console.log(chalk.blue(`🔗 Page URL: ${baseUrl}${links.webui}`));
+			console.log(chalk.green("✅ Fetch complete!\n"));
+		} catch (error: unknown) {
+			console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
+			process.exit(1);
+		}
+	});
+
+program
 	.command("upload <markdownFile>")
 	.description("Upload a Markdown file to Confluence")
 	.option(
