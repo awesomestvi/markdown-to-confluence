@@ -158,6 +158,97 @@ function extractSpaceKeyFromUrl(url: string): string | null {
 }
 
 /**
+ * Convert Confluence storage format (HTML with macros) to Markdown
+ */
+function convertConfluenceToMarkdown(html: string): string {
+	let md = html;
+
+	// Remove layout macros but keep content
+	md = md.replace(/<ac:layout[^>]*>/g, "");
+	md = md.replace(/<\/ac:layout>/g, "");
+	md = md.replace(/<ac:layout-section[^>]*>/g, "");
+	md = md.replace(/<\/ac:layout-section>/g, "");
+	md = md.replace(/<ac:layout-cell[^>]*>/g, "");
+	md = md.replace(/<\/ac:layout-cell>/g, "");
+
+	// Convert structured macros (code blocks, info, etc.)
+	md = md.replace(
+		/<ac:structured-macro ac:name="code"[^>]*>[\s\S]*?<ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body>[\s\S]*?<\/ac:structured-macro>/g,
+		"```\n$1\n```",
+	);
+	md = md.replace(
+		/<ac:structured-macro[^>]*>[\s\S]*?<\/ac:structured-macro>/g,
+		"",
+	);
+
+	// Convert headers
+	md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gis, "# $1\n\n");
+	md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gis, "## $1\n\n");
+	md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gis, "### $1\n\n");
+	md = md.replace(/<h4[^>]*>(.*?)<\/h4>/gis, "#### $1\n\n");
+	md = md.replace(/<h5[^>]*>(.*?)<\/h5>/gis, "##### $1\n\n");
+	md = md.replace(/<h6[^>]*>(.*?)<\/h6>/gis, "###### $1\n\n");
+
+	// Convert paragraphs
+	md = md.replace(/<p[^>]*>(.*?)<\/p>/gis, "$1\n\n");
+
+	// Convert lists
+	md = md.replace(/<ul[^>]*>/gi, "");
+	md = md.replace(/<\/ul>/gi, "");
+	md = md.replace(/<ol[^>]*>/gi, "");
+	md = md.replace(/<\/ol>/gi, "");
+	md = md.replace(/<li[^>]*>(.*?)<\/li>/gis, "- $1\n");
+
+	// Convert strong/bold
+	md = md.replace(/<strong[^>]*>(.*?)<\/strong>/gis, "**$1**");
+	md = md.replace(/<b[^>]*>(.*?)<\/b>/gis, "**$1**");
+
+	// Convert italic
+	md = md.replace(/<em[^>]*>(.*?)<\/em>/gis, "*$1*");
+	md = md.replace(/<i[^>]*>(.*?)<\/i>/gis, "*$1*");
+
+	// Convert inline code
+	md = md.replace(/<code[^>]*>(.*?)<\/code>/gis, "`$1`");
+
+	// Convert links
+	md = md.replace(/<a href="(.*?)"[^>]*>(.*?)<\/a>/gis, "[$2]($1)");
+
+	// Convert hr
+	md = md.replace(/<hr[^>]*>/gis, "\n---\n");
+
+	// Convert br
+	md = md.replace(/<br[^>]*>/gis, "\n");
+
+	// Convert tables
+	md = md.replace(/<table[^>]*>/gi, "\n");
+	md = md.replace(/<\/table>/gi, "\n");
+	md = md.replace(/<tbody[^>]*>/gi, "");
+	md = md.replace(/<\/tbody>/gi, "");
+	md = md.replace(/<tr[^>]*>/gi, "| ");
+	md = md.replace(/<\/tr>/gi, "|\n");
+	md = md.replace(/<th[^>]*>(.*?)<\/th>/gis, "$1 |");
+	md = md.replace(/<td[^>]*>(.*?)<\/td>/gis, "$1 |");
+
+	// Remove all remaining HTML tags
+	md = md.replace(/<[^>]+>/g, "");
+
+	// Decode HTML entities
+	md = md.replace(/&amp;/g, "&");
+	md = md.replace(/&quot;/g, '"');
+	md = md.replace(/&lt;/g, "<");
+	md = md.replace(/&gt;/g, ">");
+	md = md.replace(/&nbsp;/g, " ");
+	md = md.replace(/&#39;/g, "'");
+
+	// Clean up extra whitespace
+	md = md.replace(/\n\s*\n\s*\n/g, "\n\n");
+	md = md.replace(/^[ \t]+/gm, "");
+	md = md.trim();
+
+	return md;
+}
+
+/**
  * Find Confluence reference URL in content
  */
 function findConfluenceUrlInContent(content: string): string | null {
@@ -422,6 +513,7 @@ program
 	.description("Fetch a Confluence page content by ID")
 	.option("-k, --space <key>", "Confluence space key (optional)")
 	.option("-o, --output <file>", "Output file path (default: stdout)")
+	.option("-m, --markdown", "Convert Confluence storage format to Markdown")
 	.action(async (pageId: string, options: Record<string, unknown>) => {
 		try {
 			const email = process.env.CONFLUENCE_EMAIL;
@@ -482,12 +574,18 @@ program
 			}
 
 			const page = (await response.json()) as Record<string, unknown>;
-			const content = (
+			let content = (
 				(page.body as Record<string, unknown>)?.storage as Record<
 					string,
 					unknown
 				>
 			)?.value as string;
+
+			// Convert to Markdown if requested
+			const asMarkdown = options.markdown as boolean | undefined;
+			if (asMarkdown && content) {
+				content = convertConfluenceToMarkdown(content);
+			}
 
 			spinner.succeed(chalk.green(`Fetched page: ${page.title as string}`));
 
