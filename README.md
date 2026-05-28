@@ -41,9 +41,9 @@ mdc --help
 
 ### Step 1: Set Up Credentials
 
-Run the setup script:
+Run the init command:
 ```bash
-./setup-zshrc.sh
+mdc init
 ```
 
 You'll need:
@@ -95,6 +95,7 @@ mdc upload your-file.md -u
 
 | Command | Description |
 |---------|-------------|
+| `mdc init` | Initialize Confluence credentials |
 | `mdc upload file.md` | Create a new page |
 | `mdc upload file.md -u` | Update existing page |
 | `mdc upload file.md -t "Custom Title"` | Override page title |
@@ -314,7 +315,7 @@ steps:
 
 | Issue | Solution |
 |-------|----------|
-| `❌ Missing required Confluence credentials` | Run `./setup-zshrc.sh` then `source ~/.zshrc` |
+| `❌ Missing required Confluence credentials` | Run `mdc init` then `source ~/.zshrc` |
 | `❌ A page with this title already exists` | Use `-u` flag: `mdc upload file.md -u` |
 | `❌ Auto-detection failing` | Specify manually: `-s <url> -k <space> -p <id>` |
 | `zsh: permission denied: mdc` | Run `npm run build && npm link` |
