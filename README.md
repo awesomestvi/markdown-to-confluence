@@ -102,6 +102,8 @@ mdc upload your-file.md -u
 | `mdc upload file.md -k SPACE -p 123456` | Specify space and parent |
 | `mdc fetch <pageId>` | Fetch a Confluence page content |
 | `mdc fetch <pageId> -o file.md` | Fetch and save to file |
+| `mdc fetch <pageId> -m` | Fetch and convert to Markdown |
+| `mdc fetch <pageId> -k SPACE` | Fetch from specific space |
 
 ### All Available Options
 
@@ -144,11 +146,20 @@ mdc upload onboarding.md \
 
 ### Fetch Page Content
 ```bash
-# Fetch and display to stdout
+# Fetch and display to stdout (Confluence storage format)
 mdc fetch 123456789
 
 # Fetch and save to file
 mdc fetch 123456789 -o downloaded-page.md
+
+# Fetch and convert to Markdown
+mdc fetch 123456789 -m
+
+# Fetch as Markdown and save to file
+mdc fetch 123456789 -m -o page.md
+
+# Fetch from specific space
+mdc fetch 123456789 -k SPACE
 ```
 
 ### Upload Multiple Files
