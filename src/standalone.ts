@@ -456,7 +456,20 @@ program
 			});
 
 			if (!response.ok) {
-				throw new Error(`Request failed with status code ${response.status}`);
+				const errorData = await response.json().catch(() => ({}));
+				if (response.status === 404) {
+					throw new Error(
+						`Page not found. Please check the page ID: ${pageId}`,
+					);
+				}
+				if (response.status === 401 || response.status === 403) {
+					throw new Error(
+						"Authentication failed. Please check your credentials by running 'mdc init'",
+					);
+				}
+				throw new Error(
+					`Request failed with status code ${response.status}: ${JSON.stringify(errorData)}`,
+				);
 			}
 
 			const page = (await response.json()) as Record<string, unknown>;
