@@ -1,12 +1,12 @@
 {
-  "name": "mdc-cli",
+  "name": "@navet-tools/mdc-cli",
   "version": "1.0.0",
   "description": "CLI tool to upload Markdown files to Confluence",
-  "author": "Your Name",
+  "author": "Vishal Chauhan",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "<your-repository-url>"
+    "url": "https://github.com/awesomestvi/markdown-to-confluence"
   },
   "keywords": [
     "confluence",

@@ -4,7 +4,7 @@
 
 A powerful CLI tool that converts Markdown to Confluence format and uploads it directly from your terminal. Perfect for teams who love writing in Markdown but need to publish to Confluence.
 
-![npm](https://img.shields.io/npm/v/mdc-cli)
+![npm](https://img.shields.io/npm/v/@navet-tools/mdc-cli)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D18-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -27,7 +27,7 @@ A powerful CLI tool that converts Markdown to Confluence format and uploads it d
 **Requirements:** Node.js 18 or later
 
 ```bash
-npm install -g mdc-cli
+npm install -g @navet-tools/mdc-cli
 ```
 
 Verify installation:
@@ -261,7 +261,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - run: npm install -g mdc-cli
+      - run: npm install -g @navet-tools/mdc-cli
       - run: mdc upload docs/*.md -u
         env:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
@@ -273,7 +273,7 @@ jobs:
 sync-docs:
   stage: deploy
   script:
-    - npm install -g mdc-cli
+    - npm install -g @navet-tools/mdc-cli
     - mdc upload docs/*.md -u
   variables:
     CONFLUENCE_EMAIL: $CONFLUENCE_EMAIL
@@ -298,7 +298,7 @@ steps:
   inputs:
     versionSpec: '18.x'
 
-- script: npm install -g mdc-cli
+- script: npm install -g @navet-tools/mdc-cli
   displayName: 'Install CLI'
 
 - script: mdc upload docs/*.md -u

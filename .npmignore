@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Source files (not needed in npm package)
+src/
+
+# Development config
+tsconfig.json
+eslint.config.*
+.eslintrc*
+.prettierrc*
+
+# Tests
+test/
+tests/
+*.test.ts
+*.spec.ts
+test-api.js
+
+# Documentation
+*.md
+!README.md
+
+# Scripts
+install-cli.sh
+setup-zshrc.sh
+
+# Git
+.git/
+.gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+.npmrc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Build artifacts (will be rebuilt)
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
