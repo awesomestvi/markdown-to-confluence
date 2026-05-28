@@ -399,6 +399,25 @@ program
 	.version("2.0.0");
 
 program
+	.command("init")
+	.description("Initialize Confluence credentials by running setup script")
+	.action(() => {
+		const { execSync } = require("node:child_process");
+		const path = require("node:path");
+
+		try {
+			const scriptPath = path.join(__dirname, "../setup-zshrc.sh");
+			execSync(`bash "${scriptPath}"`, { stdio: "inherit" });
+		} catch (error: unknown) {
+			console.error(
+				chalk.red("Failed to run setup script:"),
+				(error as Error).message,
+			);
+			process.exit(1);
+		}
+	});
+
+program
 	.command("upload <markdownFile>")
 	.description("Upload a Markdown file to Confluence")
 	.option(
@@ -439,7 +458,7 @@ program
 				if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
 				if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
 				if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
-				console.error(chalk.yellow("\n💡 Run: ./setup-zshrc.sh"));
+				console.error(chalk.yellow("\n💡 Run: mdc init"));
 				process.exit(1);
 			}
 
