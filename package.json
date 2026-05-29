@@ -1,6 +1,6 @@
 {
 	"name": "@navet-tools/mdc-cli",
-	"version": "1.5.2",
+	"version": "1.5.3",
 	"description": "CLI tool to upload Markdown files to Confluence",
 	"author": "Vishal Chauhan",
 	"license": "MIT",
@@ -54,9 +54,6 @@
 		"@biomejs/biome": "^2.4.16",
 		"@types/markdown-it": "^14.1.2",
 		"@types/node": "^20.10.4",
-		"@typescript-eslint/eslint-plugin": "^8.59.4",
-		"@typescript-eslint/parser": "^8.59.4",
-		"eslint": "^8.55.0",
 		"typescript": "^5.3.3"
 	}
 }
