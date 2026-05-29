@@ -47,3 +47,15 @@ chore(deps): update markdown-it to latest version
 
 - Test changes with real Confluence instances when possible
 - Verify both cloud (atlassian.net) and on-premise Confluence URLs
+
+## Release Workflow
+
+- If the user asks to "prepare release" or "prepare npm package release", bump the package version first.
+- After release prep changes are complete, create a Git commit using Conventional Commits.
+- Create a Git tag that matches the package version, prefixed with `v` (for example `v1.5.3`).
+- Push the commit and tag to GitHub unless the user explicitly says not to push.
+- After the repo is ready, tell the user to run:
+
+```bash
+npm publish --access public
+```
