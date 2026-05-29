@@ -3,11 +3,81 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import chalk from "chalk";
-import { Command } from "commander";
 import MarkdownIt from "markdown-it";
-import ora from "ora";
+import packageJson from "../package.json";
 
-const program = new Command();
+const spinnerFrames = ["|", "/", "-", "\\"];
+const cliVersion = packageJson.version;
+
+type FetchOptions = {
+	space?: string;
+	output?: string;
+	markdown?: boolean;
+};
+
+type UploadOptions = {
+	service?: string;
+	space?: string;
+	parent?: string;
+	pageId?: string;
+	title?: string;
+	update?: boolean;
+};
+
+class Spinner {
+	private active = false;
+	private frameIndex = 0;
+	private intervalId: NodeJS.Timeout | undefined;
+
+	constructor(private currentText: string) {}
+
+	start(): Spinner {
+		if (!process.stdout.isTTY) {
+			return this;
+		}
+
+		this.active = true;
+		this.render();
+		this.intervalId = setInterval(() => {
+			this.frameIndex = (this.frameIndex + 1) % spinnerFrames.length;
+			this.render();
+		}, 80);
+
+		return this;
+	}
+
+	set text(value: string) {
+		this.currentText = value;
+		if (this.active) {
+			this.render();
+		}
+	}
+
+	succeed(message: string): void {
+		this.finish("✓", message);
+	}
+
+	private render(): void {
+		process.stdout.write(
+			`\r\u001B[2K${spinnerFrames[this.frameIndex]} ${this.currentText}`,
+		);
+	}
+
+	private finish(symbol: string, message: string): void {
+		if (this.intervalId) {
+			clearInterval(this.intervalId);
+			this.intervalId = undefined;
+		}
+
+		if (this.active) {
+			process.stdout.write(`\r\u001B[2K${symbol} ${message}\n`);
+			this.active = false;
+			return;
+		}
+
+		console.log(`${symbol} ${message}`);
+	}
+}
 
 // Initialize markdown parser
 const md = new MarkdownIt({
@@ -484,393 +554,505 @@ class ConfluenceClient {
 	}
 }
 
-program
-	.name("mdc")
-	.description("Upload Markdown files to Confluence - Standalone CLI")
-	.version("2.0.0");
+function printHelp(): void {
+	console.log(`mdc v${cliVersion}
 
-program
-	.command("init")
-	.description("Initialize Confluence credentials by running setup script")
-	.action(() => {
-		const { execSync } = require("node:child_process");
-		const path = require("node:path");
+Upload Markdown files to Confluence - Standalone CLI
 
-		try {
-			const scriptPath = path.join(__dirname, "../setup-zshrc.sh");
-			execSync(`bash "${scriptPath}"`, { stdio: "inherit" });
-		} catch (error: unknown) {
+Usage:
+  mdc <command> [options]
+
+Commands:
+  init                  Initialize Confluence credentials
+  fetch <pageId>        Fetch a Confluence page by ID
+  upload <markdownFile> Upload a Markdown file to Confluence
+
+Global options:
+  -h, --help            Show help
+  -v, --version         Show version
+
+Fetch options:
+  -k, --space <key>     Confluence space key
+  -o, --output <file>   Output file path
+  -m, --markdown        Convert Confluence storage format to Markdown
+
+Upload options:
+  -s, --service <url>   Confluence base URL
+  -k, --space <key>     Confluence space key
+  -p, --parent <id>     Parent page ID
+  -i, --page-id <id>    Page ID to update directly
+  -t, --title <title>   Page title
+  -u, --update          Update page if it exists`);
+}
+
+function printFetchHelp(): void {
+	console.log(`Usage:
+  mdc fetch <pageId> [options]
+
+Options:
+  -k, --space <key>     Confluence space key
+  -o, --output <file>   Output file path
+  -m, --markdown        Convert Confluence storage format to Markdown
+  -h, --help            Show help`);
+}
+
+function printUploadHelp(): void {
+	console.log(`Usage:
+  mdc upload <markdownFile> [options]
+
+Options:
+  -s, --service <url>   Confluence base URL
+  -k, --space <key>     Confluence space key
+  -p, --parent <id>     Parent page ID
+  -i, --page-id <id>    Page ID to update directly
+  -t, --title <title>   Page title
+  -u, --update          Update page if it exists
+  -h, --help            Show help`);
+}
+
+function failCli(message: string): never {
+	console.error(chalk.red(message));
+	process.exit(1);
+}
+
+function takeOptionValue(args: string[], index: number, flag: string): string {
+	const value = args[index + 1];
+	if (!value || value.startsWith("-")) {
+		failCli(`Missing value for ${flag}`);
+	}
+	return value;
+}
+
+function parseFetchOptions(args: string[]): FetchOptions {
+	const options: FetchOptions = {};
+
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		switch (arg) {
+			case "-k":
+			case "--space":
+				options.space = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-o":
+			case "--output":
+				options.output = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-m":
+			case "--markdown":
+				options.markdown = true;
+				break;
+			case "-h":
+			case "--help":
+				printFetchHelp();
+				process.exit(0);
+			default:
+				failCli(`Unknown option: ${arg}`);
+		}
+	}
+
+	return options;
+}
+
+function parseUploadOptions(args: string[]): UploadOptions {
+	const options: UploadOptions = {};
+
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		switch (arg) {
+			case "-s":
+			case "--service":
+				options.service = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-k":
+			case "--space":
+				options.space = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-p":
+			case "--parent":
+				options.parent = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-i":
+			case "--page-id":
+				options.pageId = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-t":
+			case "--title":
+				options.title = takeOptionValue(args, index, arg);
+				index += 1;
+				break;
+			case "-u":
+			case "--update":
+				options.update = true;
+				break;
+			case "-h":
+			case "--help":
+				printUploadHelp();
+				process.exit(0);
+			default:
+				failCli(`Unknown option: ${arg}`);
+		}
+	}
+
+	return options;
+}
+
+function runInit(): void {
+	const { execSync } = require("node:child_process");
+
+	try {
+		const scriptPath = path.join(__dirname, "../setup-zshrc.sh");
+		execSync(`bash "${scriptPath}"`, { stdio: "inherit" });
+	} catch (error: unknown) {
+		console.error(
+			chalk.red("Failed to run setup script:"),
+			(error as Error).message,
+		);
+		process.exit(1);
+	}
+}
+
+async function runFetch(pageId: string, options: FetchOptions): Promise<void> {
+	try {
+		const email = process.env.CONFLUENCE_EMAIL;
+		const apiToken = process.env.CONFLUENCE_API_TOKEN;
+		const baseUrl = process.env.CONFLUENCE_BASE_URL;
+
+		if (!email || !apiToken || !baseUrl) {
 			console.error(
-				chalk.red("Failed to run setup script:"),
-				(error as Error).message,
+				chalk.red("❌ Missing required Confluence credentials in environment:"),
 			);
+			if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
+			if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
+			if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
+			console.error(chalk.yellow("\n💡 Run: mdc init"));
 			process.exit(1);
 		}
-	});
 
-program
-	.command("fetch <pageId>")
-	.description("Fetch a Confluence page content by ID")
-	.option("-k, --space <key>", "Confluence space key (optional)")
-	.option("-o, --output <file>", "Output file path (default: stdout)")
-	.option("-m, --markdown", "Convert Confluence storage format to Markdown")
-	.action(async (pageId: string, options: Record<string, unknown>) => {
-		try {
-			const email = process.env.CONFLUENCE_EMAIL;
-			const apiToken = process.env.CONFLUENCE_API_TOKEN;
-			const baseUrl = process.env.CONFLUENCE_BASE_URL;
+		const spinner = new Spinner("Fetching page from Confluence...").start();
+		const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+		const headers = {
+			"Content-Type": "application/json",
+			Accept: "application/json",
+			Authorization: `Bearer ${apiToken}`,
+			"X-Atlassian-Token": "nocheck",
+		};
 
-			if (!email || !apiToken || !baseUrl) {
-				console.error(
-					chalk.red(
-						"❌ Missing required Confluence credentials in environment:",
-					),
-				);
-				if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
-				if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
-				if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
-				console.error(chalk.yellow("\n💡 Run: mdc init"));
-				process.exit(1);
+		let url = `${cleanBaseUrl}/rest/api/content/${pageId}?expand=body.storage`;
+		if (options.space) {
+			url += `&spaceKey=${encodeURIComponent(options.space)}`;
+		}
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers,
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			if (response.status === 404) {
+				throw new Error(`Page not found. Please check the page ID: ${pageId}`);
 			}
-
-			const spinner = ora("Fetching page from Confluence...").start();
-
-			// Remove trailing slash from base URL
-			const cleanBaseUrl = baseUrl.replace(/\/$/, "");
-			const spaceKey = options.space as string | undefined;
-
-			const headers = {
-				"Content-Type": "application/json",
-				Accept: "application/json",
-				Authorization: `Bearer ${apiToken}`,
-				"X-Atlassian-Token": "nocheck",
-			};
-
-			// Build URL with optional space key parameter
-			let url = `${cleanBaseUrl}/rest/api/content/${pageId}?expand=body.storage`;
-			if (spaceKey) {
-				url += `&spaceKey=${encodeURIComponent(spaceKey)}`;
-			}
-			const response = await fetch(url, {
-				method: "GET",
-				headers,
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				if (response.status === 404) {
-					throw new Error(
-						`Page not found. Please check the page ID: ${pageId}`,
-					);
-				}
-				if (response.status === 401 || response.status === 403) {
-					throw new Error(
-						"Authentication failed. Please check your credentials by running 'mdc init'",
-					);
-				}
+			if (response.status === 401 || response.status === 403) {
 				throw new Error(
-					`Request failed with status code ${response.status}: ${JSON.stringify(errorData)}`,
+					"Authentication failed. Please check your credentials by running 'mdc init'",
 				);
 			}
+			throw new Error(
+				`Request failed with status code ${response.status}: ${JSON.stringify(errorData)}`,
+			);
+		}
 
-			const page = (await response.json()) as Record<string, unknown>;
-			let content = (
-				(page.body as Record<string, unknown>)?.storage as Record<
-					string,
-					unknown
-				>
-			)?.value as string;
+		const page = (await response.json()) as Record<string, unknown>;
+		let content = (
+			(page.body as Record<string, unknown>)?.storage as Record<string, unknown>
+		)?.value as string;
 
-			// Convert to Markdown if requested
-			const asMarkdown = options.markdown as boolean | undefined;
-			if (asMarkdown && content) {
-				content = convertConfluenceToMarkdown(content);
-			}
+		if (options.markdown && content) {
+			content = convertConfluenceToMarkdown(content);
+		}
 
-			spinner.succeed(chalk.green(`Fetched page: ${page.title as string}`));
+		spinner.succeed(chalk.green(`Fetched page: ${page.title as string}`));
 
-			if (options.output) {
-				const outputPath = options.output as string;
-				fs.writeFileSync(outputPath, content || "");
-				console.log(chalk.blue(`\n📄 Content saved to: ${outputPath}`));
-			} else {
-				console.log(`\n${content || ""}`);
-			}
+		if (options.output) {
+			fs.writeFileSync(options.output, content || "");
+			console.log(chalk.blue(`\n📄 Content saved to: ${options.output}`));
+		} else {
+			console.log(`\n${content || ""}`);
+		}
 
-			const links = page._links as Record<string, unknown>;
-			console.log(chalk.blue(`🔗 Page URL: ${cleanBaseUrl}${links.webui}`));
-			console.log(chalk.green("✅ Fetch complete!\n"));
-		} catch (error: unknown) {
-			console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
+		const links = page._links as Record<string, unknown>;
+		console.log(chalk.blue(`🔗 Page URL: ${cleanBaseUrl}${links.webui}`));
+		console.log(chalk.green("✅ Fetch complete!\n"));
+	} catch (error: unknown) {
+		console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
+		process.exit(1);
+	}
+}
+
+async function runUpload(
+	markdownFile: string,
+	options: UploadOptions,
+): Promise<void> {
+	try {
+		let baseUrl = process.env.CONFLUENCE_BASE_URL;
+		const email = process.env.CONFLUENCE_EMAIL;
+		const apiToken = process.env.CONFLUENCE_API_TOKEN;
+
+		if (!email || !apiToken) {
+			console.error(
+				chalk.red("❌ Missing required Confluence credentials in environment:"),
+			);
+			if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
+			if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
+			if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
+			console.error(chalk.yellow("\n💡 Run: mdc init"));
 			process.exit(1);
 		}
-	});
 
-program
-	.command("upload <markdownFile>")
-	.description("Upload a Markdown file to Confluence")
-	.option(
-		"-s, --service <url>",
-		"Confluence base URL (overrides frontmatter and content)",
-	)
-	.option(
-		"-k, --space <key>",
-		"Confluence space key (overrides frontmatter and content)",
-	)
-	.option("-p, --parent <id>", "Parent page ID (overrides frontmatter)")
-	.option(
-		"-i, --page-id <id>",
-		"Page ID to update directly (bypasses title search)",
-	)
-	.option(
-		"-t, --title <title>",
-		"Page title (overrides frontmatter, defaults to filename)",
-	)
-	.option(
-		"-u, --update",
-		"Update page if exists (overrides frontmatter)",
-		false,
-	)
-	.action(async (markdownFile: string, options: Record<string, unknown>) => {
-		try {
-			// Validate required environment variables
-			let baseUrl = process.env.CONFLUENCE_BASE_URL;
-			const email = process.env.CONFLUENCE_EMAIL;
-			const apiToken = process.env.CONFLUENCE_API_TOKEN;
+		const absolutePath = path.resolve(markdownFile);
+		if (!fs.existsSync(absolutePath)) {
+			console.error(chalk.red(`Error: File not found: ${absolutePath}`));
+			process.exit(1);
+		}
 
-			if (!email || !apiToken) {
-				console.error(
-					chalk.red(
-						"❌ Missing required Confluence credentials in environment:",
-					),
-				);
-				if (!baseUrl) console.error(chalk.red("   - CONFLUENCE_BASE_URL"));
-				if (!email) console.error(chalk.red("   - CONFLUENCE_EMAIL"));
-				if (!apiToken) console.error(chalk.red("   - CONFLUENCE_API_TOKEN"));
-				console.error(chalk.yellow("\n💡 Run: mdc init"));
-				process.exit(1);
-			}
+		const markdownContent = fs.readFileSync(absolutePath, "utf-8");
+		const { frontmatter, content } = parseFrontmatter(markdownContent);
+		const rawBaseUrl = options.service || frontmatter.baseUrl;
+		let spaceKey = options.space || frontmatter.spaceKey;
+		let parentPageId = options.parent || frontmatter.parentPageId;
+		let pageTitle = options.title || frontmatter.title;
+		let updateIfExists = options.update || frontmatter.updateIfExists || false;
+		let directPageId = options.pageId;
+		let urlToParse: string | null = rawBaseUrl;
 
-			// Read markdown file
-			const absolutePath = path.resolve(markdownFile);
-			if (!fs.existsSync(absolutePath)) {
-				console.error(chalk.red(`Error: File not found: ${absolutePath}`));
-				process.exit(1);
-			}
+		if (!urlToParse) {
+			urlToParse = findConfluenceUrlInContent(content);
+		}
 
-			const markdownContent = fs.readFileSync(absolutePath, "utf-8");
-
-			// Parse frontmatter
-			const { frontmatter, content } = parseFrontmatter(markdownContent);
-
-			// Get base URL from options, frontmatter, or content
-			const rawBaseUrl = (options.service as string) || frontmatter.baseUrl;
-			let spaceKey = (options.space as string) || frontmatter.spaceKey;
-			let parentPageId = (options.parent as string) || frontmatter.parentPageId;
-			let pageTitle = (options.title as string) || frontmatter.title;
-			let updateIfExists =
-				(options.update as boolean) || frontmatter.updateIfExists || false;
-			let directPageId = options.pageId as string;
-
-			// Extract base URL and other fields from frontmatter URL or content URL
-			let urlToParse: string | null = rawBaseUrl;
-			if (!urlToParse) {
-				urlToParse = findConfluenceUrlInContent(content);
-			}
-
-			if (urlToParse) {
-				if (!baseUrl) {
-					const extractedBaseUrl = extractBaseUrl(urlToParse);
-					if (extractedBaseUrl) {
-						baseUrl = extractedBaseUrl;
-						console.log(chalk.yellow("ℹ️  Auto-detected base URL from URL"));
-					}
-				}
-				if (!spaceKey) {
-					const extractedSpace = extractSpaceKeyFromUrl(urlToParse);
-					if (extractedSpace) {
-						spaceKey = extractedSpace;
-						console.log(
-							chalk.yellow(`ℹ️  Auto-detected space key "${spaceKey}" from URL`),
-						);
-					}
-				}
-				// Only extract parent if direct page ID not specified
-				if (!directPageId && !parentPageId) {
-					const extractedParentId = extractParentPageIdFromUrl(urlToParse);
-					if (extractedParentId) {
-						parentPageId = extractedParentId;
-						console.log(
-							chalk.yellow(
-								`ℹ️  Auto-detected parent page ID "${parentPageId}" from URL`,
-							),
-						);
-					}
-				}
-				// Extract page ID from URL if present (for direct update)
-				if (!directPageId) {
-					const extractedPageId = extractParentPageIdFromUrl(urlToParse);
-					if (extractedPageId) {
-						directPageId = extractedPageId;
-						console.log(
-							chalk.yellow(
-								`ℹ️  Auto-detected page ID "${directPageId}" from URL`,
-							),
-						);
-					}
-				}
-				if (!pageTitle) {
-					const extractedTitle = extractTitleFromUrl(urlToParse);
-					if (extractedTitle) {
-						pageTitle = extractedTitle;
-						console.log(
-							chalk.yellow(`ℹ️  Auto-detected title "${pageTitle}" from URL`),
-						);
-					}
-				}
-			}
-
-			// Default to true if parent page ID is specified (likely updating existing page)
-			if (
-				parentPageId &&
-				!frontmatter.updateIfExists &&
-				options.update === undefined
-			) {
-				updateIfExists = true;
-			}
-
-			// Remove trailing slash from base URL
-			if (baseUrl) {
-				baseUrl = baseUrl.replace(/\/$/, "");
-			}
-
-			// Validate required fields
+		if (urlToParse) {
 			if (!baseUrl) {
-				console.error(chalk.red("❌ Missing Confluence URL"));
-				console.error(
-					chalk.yellow(
-						"\n💡 Add a Confluence reference URL to your Markdown frontmatter:",
-					),
-				);
-				console.error(chalk.gray("   ---"));
-				console.error(
-					chalk.gray(
-						"   confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title",
-					),
-				);
-				console.error(chalk.gray("   ---"));
-				console.error(chalk.yellow("\nOr use command-line options:"));
-				console.error(chalk.yellow("  --service <url>   Confluence base URL"));
-				console.error(
-					chalk.yellow("  --space <key>     Space key (e.g., DEV, ENG)"),
-				);
-				console.error(chalk.yellow("  --parent <id>     Parent page ID\n"));
-				process.exit(1);
+				const extractedBaseUrl = extractBaseUrl(urlToParse);
+				if (extractedBaseUrl) {
+					baseUrl = extractedBaseUrl;
+					console.log(chalk.yellow("ℹ️  Auto-detected base URL from URL"));
+				}
 			}
-
 			if (!spaceKey) {
-				console.error(chalk.red("❌ Could not detect space key from URL"));
-				console.error(chalk.yellow("\n💡 Provide the space key via:"));
-				console.error(chalk.yellow("  --space <key>     (e.g., DEV, ENG, KB)"));
-				console.error(chalk.yellow("\nOr add it to your frontmatter:"));
-				console.error(chalk.gray("   ---"));
-				console.error(
-					chalk.gray(
-						"   confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123/Page+Title",
-					),
-				);
-				console.error(chalk.gray("   ---\n"));
-				process.exit(1);
+				const extractedSpace = extractSpaceKeyFromUrl(urlToParse);
+				if (extractedSpace) {
+					spaceKey = extractedSpace;
+					console.log(
+						chalk.yellow(`ℹ️  Auto-detected space key "${spaceKey}" from URL`),
+					);
+				}
 			}
-
-			// Default title to filename if still not set
+			if (!directPageId && !parentPageId) {
+				const extractedParentId = extractParentPageIdFromUrl(urlToParse);
+				if (extractedParentId) {
+					parentPageId = extractedParentId;
+					console.log(
+						chalk.yellow(
+							`ℹ️  Auto-detected parent page ID "${parentPageId}" from URL`,
+						),
+					);
+				}
+			}
+			if (!directPageId) {
+				const extractedPageId = extractParentPageIdFromUrl(urlToParse);
+				if (extractedPageId) {
+					directPageId = extractedPageId;
+					console.log(
+						chalk.yellow(
+							`ℹ️  Auto-detected page ID "${directPageId}" from URL`,
+						),
+					);
+				}
+			}
 			if (!pageTitle) {
-				pageTitle = path.basename(markdownFile, ".md");
+				const extractedTitle = extractTitleFromUrl(urlToParse);
+				if (extractedTitle) {
+					pageTitle = extractedTitle;
+					console.log(
+						chalk.yellow(`ℹ️  Auto-detected title "${pageTitle}" from URL`),
+					);
+				}
 			}
+		}
 
-			// Show upload info
-			console.log(chalk.blue("\n📤 Uploading to Confluence:"));
-			console.log(chalk.gray(`   Base URL: ${baseUrl}`));
-			console.log(chalk.gray(`   Space: ${spaceKey}`));
-			console.log(chalk.gray(`   Title: ${pageTitle}`));
-			if (parentPageId) console.log(chalk.gray(`   Parent: ${parentPageId}`));
-			console.log(chalk.gray(`   Update if exists: ${updateIfExists}`));
-			console.log("");
+		if (parentPageId && !frontmatter.updateIfExists && options.update === undefined) {
+			updateIfExists = true;
+		}
 
-			const spinner = ora(
-				"Converting Markdown to Confluence format...",
-			).start();
+		if (baseUrl) {
+			baseUrl = baseUrl.replace(/\/$/, "");
+		}
 
-			// Convert markdown
-			const htmlContent = convertMarkdownToConfluenceStorage(content);
+		if (!baseUrl) {
+			console.error(chalk.red("❌ Missing Confluence URL"));
+			console.error(
+				chalk.yellow(
+					"\n💡 Add a Confluence reference URL to your Markdown frontmatter:",
+				),
+			);
+			console.error(chalk.gray("   ---"));
+			console.error(
+				chalk.gray(
+					"   confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title",
+				),
+			);
+			console.error(chalk.gray("   ---"));
+			console.error(chalk.yellow("\nOr use command-line options:"));
+			console.error(chalk.yellow("  --service <url>   Confluence base URL"));
+			console.error(chalk.yellow("  --space <key>     Space key (e.g., DEV, ENG)"));
+			console.error(chalk.yellow("  --parent <id>     Parent page ID\n"));
+			process.exit(1);
+		}
 
-			spinner.text = "Connecting to Confluence...";
+		if (!spaceKey) {
+			console.error(chalk.red("❌ Could not detect space key from URL"));
+			console.error(chalk.yellow("\n💡 Provide the space key via:"));
+			console.error(chalk.yellow("  --space <key>     (e.g., DEV, ENG, KB)"));
+			console.error(chalk.yellow("\nOr add it to your frontmatter:"));
+			console.error(chalk.gray("   ---"));
+			console.error(
+				chalk.gray(
+					"   confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123/Page+Title",
+				),
+			);
+			console.error(chalk.gray("   ---\n"));
+			process.exit(1);
+		}
 
-			// Create client
-			const client = new ConfluenceClient({
-				baseUrl,
-				apiToken,
-				email,
-				spaceKey,
-			});
+		if (!pageTitle) {
+			pageTitle = path.basename(markdownFile, ".md");
+		}
 
-			spinner.text = "Uploading to Confluence...";
+		console.log(chalk.blue("\n📤 Uploading to Confluence:"));
+		console.log(chalk.gray(`   Base URL: ${baseUrl}`));
+		console.log(chalk.gray(`   Space: ${spaceKey}`));
+		console.log(chalk.gray(`   Title: ${pageTitle}`));
+		if (parentPageId) console.log(chalk.gray(`   Parent: ${parentPageId}`));
+		console.log(chalk.gray(`   Update if exists: ${updateIfExists}`));
+		console.log("");
 
-			// Upload
-			let page: Record<string, unknown> | undefined;
-			if (updateIfExists) {
-				let existingPage: Record<string, unknown> | null = null;
+		const spinner = new Spinner(
+			"Converting Markdown to Confluence format...",
+		).start();
+		const htmlContent = convertMarkdownToConfluenceStorage(content);
+		spinner.text = "Connecting to Confluence...";
 
-				// If direct page ID is available, use it to fetch the page directly
-				if (directPageId) {
-					try {
-						existingPage = await client.request(
-							`/rest/api/content/${directPageId}?expand=space,version,ancestors`,
-							"GET",
-						);
-						spinner.text = `Found existing page by ID: ${directPageId}`;
-					} catch {
-						// If direct fetch fails, fall back to title search
-						existingPage = null;
-					}
-				}
+		const client = new ConfluenceClient({
+			baseUrl,
+			apiToken,
+			email,
+			spaceKey,
+		});
 
-				// Fall back to title search if no page ID or direct fetch failed
-				if (!existingPage) {
-					existingPage = await client.findPageByTitle(pageTitle);
-				}
+		spinner.text = "Uploading to Confluence...";
 
-				if (existingPage) {
-					const pageDetails = await client.request(
-						`/rest/api/content/${existingPage.id}?expand=version`,
+		let page: Record<string, unknown> | undefined;
+		if (updateIfExists) {
+			let existingPage: Record<string, unknown> | null = null;
+
+			if (directPageId) {
+				try {
+					existingPage = await client.request(
+						`/rest/api/content/${directPageId}?expand=space,version,ancestors`,
 						"GET",
 					);
-					const version = (pageDetails.version as Record<string, number>)
-						.number;
-
-					page = await client.updatePage(
-						existingPage.id as string,
-						pageTitle,
-						htmlContent,
-						version,
-					);
-					spinner.succeed(chalk.green(`Updated existing page: ${page.id}`));
-				} else {
-					page = await client.createPage(pageTitle, htmlContent, parentPageId);
-					spinner.succeed(chalk.green(`Created new page: ${page.id}`));
+					spinner.text = `Found existing page by ID: ${directPageId}`;
+				} catch {
+					existingPage = null;
 				}
+			}
+
+			if (!existingPage) {
+				existingPage = await client.findPageByTitle(pageTitle);
+			}
+
+			if (existingPage) {
+				const pageDetails = await client.request(
+					`/rest/api/content/${existingPage.id}?expand=version`,
+					"GET",
+				);
+				const version = (pageDetails.version as Record<string, number>).number;
+
+				page = await client.updatePage(
+					existingPage.id as string,
+					pageTitle,
+					htmlContent,
+					version,
+				);
+				spinner.succeed(chalk.green(`Updated existing page: ${page.id}`));
 			} else {
 				page = await client.createPage(pageTitle, htmlContent, parentPageId);
 				spinner.succeed(chalk.green(`Created new page: ${page.id}`));
 			}
-
-			const pageUrl = client.getPageUrl(page as Record<string, unknown>);
-			console.log(chalk.blue(`\n🔗 Page URL: ${pageUrl}`));
-			console.log(chalk.green("✅ Upload complete!\n"));
-		} catch (error: unknown) {
-			console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
-			process.exit(1);
+		} else {
+			page = await client.createPage(pageTitle, htmlContent, parentPageId);
+			spinner.succeed(chalk.green(`Created new page: ${page.id}`));
 		}
-	});
 
-program.parse();
+		const pageUrl = client.getPageUrl(page as Record<string, unknown>);
+		console.log(chalk.blue(`\n🔗 Page URL: ${pageUrl}`));
+		console.log(chalk.green("✅ Upload complete!\n"));
+	} catch (error: unknown) {
+		console.error(chalk.red(`\n❌ Error: ${(error as Error).message}\n`));
+		process.exit(1);
+	}
+}
+
+async function main(): Promise<void> {
+	const args = process.argv.slice(2);
+	const [command, ...rest] = args;
+
+	if (!command || command === "-h" || command === "--help") {
+		printHelp();
+		return;
+	}
+
+	if (command === "-v" || command === "--version") {
+		console.log(cliVersion);
+		return;
+	}
+
+	switch (command) {
+		case "init":
+			runInit();
+			return;
+		case "fetch": {
+			if (rest[0] === "-h" || rest[0] === "--help") {
+				printFetchHelp();
+				return;
+			}
+			const [pageId, ...optionArgs] = rest;
+			if (!pageId) {
+				failCli("Missing required argument: <pageId>");
+			}
+			await runFetch(pageId, parseFetchOptions(optionArgs));
+			return;
+		}
+		case "upload": {
+			if (rest[0] === "-h" || rest[0] === "--help") {
+				printUploadHelp();
+				return;
+			}
+			const [markdownFile, ...optionArgs] = rest;
+			if (!markdownFile) {
+				failCli("Missing required argument: <markdownFile>");
+			}
+			await runUpload(markdownFile, parseUploadOptions(optionArgs));
+			return;
+		}
+		default:
+			failCli(`Unknown command: ${command}`);
+	}
+}
+
+void main();

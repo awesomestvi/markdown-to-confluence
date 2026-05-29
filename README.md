@@ -114,6 +114,7 @@ Options:
   -s, --service <url>   Confluence base URL (overrides auto-detection)
   -k, --space <key>     Confluence space key (overrides auto-detection)
   -p, --parent <id>     Parent page ID (overrides auto-detection)
+  -i, --page-id <id>    Page ID to update directly
   -t, --title <title>   Page title (overrides auto-detection)
   -u, --update          Update page if it already exists
   -h, --help            Show help
@@ -263,7 +264,7 @@ confluence: https://your-company.atlassian.net/wiki/spaces/SPACE/pages/123456789
 # After merging to main
 git checkout main
 git pull
-confluence-upload upload docs/*.md -u
+mdc upload docs/*.md -u
 ```
 
 ### CI/CD Integration
@@ -352,6 +353,9 @@ mdc --help
 
 # Show help for specific command
 mdc upload --help
+
+# Show version
+mdc --version
 ```
 
 ---

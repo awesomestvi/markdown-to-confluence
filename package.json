@@ -1,13 +1,17 @@
 {
 	"name": "@navet-tools/mdc-cli",
-	"version": "1.5.0",
+	"version": "1.5.2",
 	"description": "CLI tool to upload Markdown files to Confluence",
 	"author": "Vishal Chauhan",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/awesomestvi/markdown-to-confluence"
+		"url": "git+https://github.com/awesomestvi/markdown-to-confluence.git"
 	},
+	"bugs": {
+		"url": "https://github.com/awesomestvi/markdown-to-confluence/issues"
+	},
+	"homepage": "https://github.com/awesomestvi/markdown-to-confluence#readme",
 	"keywords": [
 		"confluence",
 		"markdown",
@@ -24,8 +28,19 @@
 	"bin": {
 		"mdc": "./dist/standalone.js"
 	},
+	"files": [
+		"dist",
+		"LICENSE",
+		"README.md",
+		"install-cli.sh",
+		"setup-zshrc.sh"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"build": "tsc",
+		"prepack": "pnpm build",
 		"start": "node dist/standalone.js",
 		"dev": "ts-node src/standalone.ts",
 		"check": "biome check --write .",
@@ -33,10 +48,7 @@
 	},
 	"dependencies": {
 		"chalk": "^5.3.0",
-		"commander": "^11.1.0",
-		"dotenv": "^16.3.1",
-		"markdown-it": "^14.2.0",
-		"ora": "^7.0.1"
+		"markdown-it": "^14.2.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.16",
